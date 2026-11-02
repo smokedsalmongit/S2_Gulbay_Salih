@@ -41,13 +41,29 @@ namespace SaturdayStudio
             if (_mode == Mode.Washing) return;
             var rb = other.attachedRigidbody;
             var g = rb != null ? rb.GetComponent<Garment>() : null;
-            if (g == null || g.Current != Garment.State.Dirty || GrabState.IsHeld(rb) || _load.Contains(g)) return;
+            if (g == null || GrabState.IsHeld(rb)) return;
+            TryLoad(g);
+        }
 
+        /// <summary>Can this piece go in right now (dirty, machine not running)?</summary>
+        public bool Accepts(Garment g) => g != null && _mode != Mode.Washing && g.Current == Garment.State.Dirty && !_load.Contains(g);
+
+        /// <summary>Is a point close enough to the washer door to count as "putting it in"?</summary>
+        public bool IsNear(Vector3 p, float margin = 0.6f)
+        {
+            var c = GetComponent<Collider>();
+            return Vector3.Distance(c.ClosestPoint(p), p) <= margin;
+        }
+
+        public bool TryLoad(Garment g)
+        {
+            if (!Accepts(g)) return false;
             _load.Add(g);
             g.gameObject.SetActive(false);
             _mode = Mode.Idle;
             _timer = _startDelay;
             Refresh();
+            return true;
         }
 
         private void Update()
@@ -78,11 +94,16 @@ namespace SaturdayStudio
             _mode = Mode.Done;
             if (_body != null) _body.localPosition = _bodyPos;
             if (_drumRenderer != null) _drumRenderer.sharedMaterial = _drumIdle;
+            // spread the washed pieces over the top of the machine (2 x 2, then a second layer)
             for (int i = 0; i < _load.Count; i++)
             {
                 var g = _load[i];
-                g.transform.SetPositionAndRotation(_output.position + Vector3.up * (i * 0.07f), _output.rotation * Quaternion.Euler(0, i * 25, 0));
+                int cell = i % 4, layer = i / 4;
+                var offset = new Vector3((cell % 2 - 0.5f) * 0.28f, 0.01f + layer * 0.07f, (cell / 2 - 0.5f) * 0.26f);
+                g.transform.SetPositionAndRotation(_output.position + offset, _output.rotation);
                 g.gameObject.SetActive(true);
+                g.Body.isKinematic = false;
+                g.Body.WakeUp();
                 g.Body.linearVelocity = Vector3.zero;
                 g.Body.angularVelocity = Vector3.zero;
                 g.SetState(Garment.State.Wet);
@@ -97,7 +118,7 @@ namespace SaturdayStudio
             _display.text = _mode switch
             {
                 Mode.Washing => $"WASHING  {Mathf.CeilToInt(_timer)}s",
-                Mode.Done => "DONE! Hang the wet clothes",
+                Mode.Done => "DONE! Wet clothes are on top",
                 _ when _load.Count > 0 => $"{_load.Count} in · starts in {Mathf.CeilToInt(_timer)}s",
                 _ => "Drop dirty clothes in here",
             };

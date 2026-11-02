@@ -110,7 +110,14 @@ namespace SaturdayStudio
             bool toggle = kb.eKey.wasPressedThisFrame || mouse.leftButton.wasPressedThisFrame;
             if (toggle)
             {
-                if (_held != null) Drop(Vector3.zero);
+                if (_held != null)
+                {
+                    // carrying laundry next to the washer / rack: put it in or hang it right away
+                    var g = _held.GetComponent<Garment>();
+                    var action = ChoreFor(g);
+                    Drop(Vector3.zero);
+                    action?.Invoke();
+                }
                 else if (_aimed != null) PickUp(_aimed);
                 else if (_aimedTask != null && _aimedTask.Target.CanActivate) _aimedTask.Target.Activate();
             }
@@ -159,6 +166,30 @@ namespace SaturdayStudio
             }
         }
 
+        private WasherMachine _washer;
+        private DryingRack _rack;
+
+        /// <summary>What dropping the carried piece of laundry here would do, or null.</summary>
+        private System.Action ChoreFor(Garment g)
+        {
+            if (g == null) return null;
+            if (_washer == null) _washer = FindAnyObjectByType<WasherMachine>();
+            if (_rack == null) _rack = FindAnyObjectByType<DryingRack>();
+            var p = g.transform.position;
+            if (_washer != null && _washer.Accepts(g) && (_washer.IsNear(p) || _washer.IsNear(transform.position, 0.9f)))
+                return () => _washer.TryLoad(g);
+            if (_rack != null && _rack.Accepts(g) && (_rack.IsNear(p) || _rack.IsNear(transform.position, 1f)))
+                return () => _rack.TryHang(g);
+            return null;
+        }
+
+        private string ChoreHint(Garment g)
+        {
+            var a = ChoreFor(g);
+            if (a == null) return null;
+            return g.Current == Garment.State.Dirty ? "E / click: put it in the washing machine" : "E / click: hang it on the rack";
+        }
+
         private void FixedUpdate()
         {
             if (_held == null) return;
@@ -200,7 +231,9 @@ namespace SaturdayStudio
             GUI.Box(new Rect(c.x - 4, c.y - 4, 8, 8), GUIContent.none);
             GUI.color = Color.white;
 
-            string hint = _held != null ? $"Carrying {Describe(_held)}  ·  E / click: drop  ·  Q / right click: throw"
+            string chore = _held != null ? ChoreHint(_held.GetComponent<Garment>()) : null;
+            string hint = chore != null ? $"Carrying {Describe(_held)}  ·  {chore}"
+                : _held != null ? $"Carrying {Describe(_held)}  ·  E / click: drop  ·  Q / right click: throw"
                 : _aimed != null ? $"{Describe(_aimed)}  ·  E / click: pick up"
                 : _aimedTask != null ? (_aimedTask.Target.CanActivate ? $"{_aimedTask.Target.Label}  ·  E / click" : _aimedTask.Target.Label) : "";
             if (hint.Length > 0) GUI.Label(new Rect(c.x - 300, c.y + 24, 600, 26), hint, _style);
