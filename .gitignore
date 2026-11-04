@@ -30,3 +30,8 @@
 .DS_Store
 sysinfo.txt
 crashlytics-build.properties
+
+# Android build output
+*_BackUpThisFolder_ButDontShipItWithYourGame/
+*_BurstDebugInformation_DoNotShip/
+.utmp/

@@ -35,13 +35,19 @@ namespace SaturdayStudio
 
         private IEnumerator Start()
         {
+#if UNITY_ANDROID && !UNITY_EDITOR
+            // a Quest build is always VR: never replace the Building Blocks rig there
+            Destroy(gameObject);
+            yield break;
+#else
             // give the XR loader a moment to bring up the headset or the simulator
-            yield return new WaitForSeconds(0.5f);
-            if (XRSettings.isDeviceActive)
+            yield return new WaitForSeconds(1f);
+            if (XRSettings.isDeviceActive || XRRunning())
             {
                 Destroy(gameObject);
                 yield break;
             }
+#endif
 
             var spawn = new Vector3(0.2f, 0, -1.4f);
             var spawnRot = Quaternion.identity;
@@ -70,6 +76,14 @@ namespace SaturdayStudio
 
             Cursor.lockState = CursorLockMode.Locked;
             Debug.Log("[Saturday Studio] No headset or Meta XR Simulator detected: desktop test mode.");
+        }
+
+        private static bool XRRunning()
+        {
+            var displays = new System.Collections.Generic.List<XRDisplaySubsystem>();
+            SubsystemManager.GetSubsystems(displays);
+            foreach (var d in displays) if (d.running) return true;
+            return false;
         }
 
         private void Update()

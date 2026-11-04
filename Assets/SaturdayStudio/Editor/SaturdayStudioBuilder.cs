@@ -540,7 +540,44 @@ namespace SaturdayStudio.EditorTools
             rb.collisionDetectionMode = CollisionDetectionMode.ContinuousSpeculative;
 
             go.AddComponent<RespawnIfFallen>();
+            AddDistanceGrab(go);
             return go;
+        }
+
+        /// <summary>
+        /// Lets the hands / controllers of the Building Blocks rig grab this object from a distance:
+        /// point at it (a reticle appears), pinch or press grip, and it flies to the hand.
+        /// </summary>
+        private static void AddDistanceGrab(GameObject go)
+        {
+            var grabbable = go.GetComponent<Grabbable>();
+            var rb = go.GetComponent<Rigidbody>();
+            if (grabbable == null || rb == null) return;
+            var old = go.transform.Find("Distance Grab");
+            if (old != null) Object.DestroyImmediate(old.gameObject);
+
+            var child = new GameObject("Distance Grab");
+            child.transform.SetParent(go.transform, false);
+            var dg = child.AddComponent<Oculus.Interaction.HandGrab.DistanceHandGrabInteractable>();
+            dg.InjectAllDistanceHandGrabInteractable(Oculus.Interaction.Grab.GrabTypeFlags.All, rb,
+                Oculus.Interaction.GrabAPI.GrabbingRule.DefaultPinchRule, Oculus.Interaction.GrabAPI.GrabbingRule.DefaultPalmRule);
+            dg.InjectOptionalPointableElement(grabbable);
+            EditorUtility.SetDirty(child);
+        }
+
+        [MenuItem("Saturday Studio/Add Distance Grab To Objects")]
+        private static void AddDistanceGrabToScene()
+        {
+            int n = 0;
+            foreach (var g in Object.FindObjectsByType<Grabbable>(FindObjectsInactive.Include))
+            {
+                if (!g.name.StartsWith("[Grab] ")) continue;
+                AddDistanceGrab(g.gameObject);
+                n++;
+            }
+            EditorSceneManager.MarkSceneDirty(SceneManager.GetActiveScene());
+            EditorSceneManager.SaveOpenScenes();
+            EditorUtility.DisplayDialog("Saturday Studio", $"Distance grab added to {n} objects and the scene was saved.", "OK");
         }
 
         /// <summary>The basket gets a compound collider (bottom + ring of walls) so clothes can sit inside it.</summary>
