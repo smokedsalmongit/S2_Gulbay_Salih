@@ -3,9 +3,27 @@ using UnityEngine;
 
 namespace SaturdayStudio
 {
-    /// <summary>The note on the wall: an in-game clock from 10:00 to 13:00 and a live checklist of the chores.</summary>
+    /// <summary>The note on the wall: the in-game clock (10:00 → 13:00) and a live checklist of the four chores.</summary>
     public class ChoreBoard : MonoBehaviour
     {
+        public struct ChoreProgress
+        {
+            public int DishesClean, DishesRacked, DishesTotal;
+            public bool BedMade;
+            public int Washed, Hung, ClothesTotal;
+            public int StainsClean, StainsTotal;
+
+            /// <summary>Washed and put in the drying rack next to the sink.</summary>
+            public bool DishesDone => DishesTotal > 0 && DishesRacked == DishesTotal;
+            public bool LaundryDone => ClothesTotal > 0 && Hung == ClothesTotal;
+            public bool FloorDone => StainsTotal == 0 || StainsClean == StainsTotal;
+            public int ChoresDone => (DishesDone ? 1 : 0) + (BedMade ? 1 : 0) + (LaundryDone ? 1 : 0) + (FloorDone ? 1 : 0);
+            public int ChoresTotal => 4;
+            public bool AllDone => ChoresDone == ChoresTotal;
+            /// <summary>Every small step counts (used for VS1's "small win" interest boost).</summary>
+            public int Points => DishesClean + DishesRacked + (BedMade ? 3 : 0) + Washed + Hung + StainsClean;
+        }
+
         [SerializeField] private TextMeshPro _text;
         [SerializeField] private float _realMinutesFor3Hours = 15f;
 
@@ -13,6 +31,9 @@ namespace SaturdayStudio
         private bool _dirty = true;
         private float _elapsed;
         private string _finishedAt;
+        private ChoreProgress _progress;
+
+        public static ChoreProgress Progress => _instance != null ? _instance._progress : default;
 
         public static void Changed()
         {
@@ -27,40 +48,59 @@ namespace SaturdayStudio
             if (_dirty || Time.frameCount % 30 == 0) Redraw();
         }
 
+        private ChoreProgress Compute()
+        {
+            var p = new ChoreProgress();
+            var dishes = FindObjectsByType<Dish>();
+            p.DishesTotal = dishes.Length;
+            foreach (var d in dishes)
+            {
+                if (!d.IsDirty) p.DishesClean++;
+                if (!d.IsDirty && d.IsRacked) p.DishesRacked++;
+            }
+            var clothes = FindObjectsByType<Garment>(FindObjectsInactive.Include);
+            p.ClothesTotal = clothes.Length;
+            foreach (var g in clothes)
+            {
+                if (g.Current != Garment.State.Dirty) p.Washed++;
+                if (g.WasHung && g.Current != Garment.State.Dirty) p.Hung++;
+            }
+            var bed = FindAnyObjectByType<BedMaker>();
+            p.BedMade = bed != null && bed.IsMade;
+            var floor = FloorChore.Instance;
+            if (floor != null)
+            {
+                p.StainsClean = floor.Cleaned;
+                p.StainsTotal = floor.Total;
+            }
+            return p;
+        }
+
         private void Redraw()
         {
             _dirty = false;
-            var dishes = FindObjectsByType<Dish>();
-            var clothes = FindObjectsByType<Garment>(FindObjectsInactive.Include);
-            var bed = FindAnyObjectByType<BedMaker>();
+            var p = _progress = Compute();
+            var ms = MindState.Instance;
 
-            int clean = 0, washed = 0, hung = 0;
-            foreach (var d in dishes) if (!d.IsDirty) clean++;
-            foreach (var g in clothes)
+            string clock;
+            if (ms != null)
+                clock = ms.Now;
+            else
             {
-                if (g.Current != Garment.State.Dirty) washed++;
-                if (g.WasHung) hung++;
+                float minutes = Mathf.Min(180, _elapsed / (_realMinutesFor3Hours * 60) * 180);
+                clock = MindState.ClockText(minutes);
             }
 
-            bool dishesDone = dishes.Length > 0 && clean == dishes.Length;
-            bool bedDone = bed != null && bed.IsMade;
-            bool washDone = clothes.Length > 0 && washed == clothes.Length;
-            bool hangDone = clothes.Length > 0 && hung == clothes.Length;
+            if (p.AllDone && _finishedAt == null && (ms == null || ms.Running))
+            {
+                _finishedAt = clock;
+                if (ms != null) ms.EndDay();
+            }
 
-            float minutes = Mathf.Min(180, _elapsed / (_realMinutesFor3Hours * 60) * 180);
-            string clock = $"{10 + (int)minutes / 60}:{(int)minutes % 60:00}";
-            if (dishesDone && bedDone && washDone && hangDone && _finishedAt == null) _finishedAt = clock;
-
-            string Line(bool done, string label, string count) =>
-                done ? $"<color=#3E8E74>[x] <s>{label}</s></color>" : $"[ ] {label} <color=#7A7F7C>{count}</color>";
-
-            _text.text =
-                $"<b>SATURDAY</b>  <color=#7A7F7C>{clock}</color>\nfriends arrive 13:00\n\n" +
-                Line(dishesDone, "wash the dishes", $"{clean}/{dishes.Length}") + "\n" +
-                Line(bedDone, "make the bed", "") + "\n" +
-                Line(washDone, "wash the laundry", $"{washed}/{clothes.Length}") + "\n" +
-                Line(hangDone, "hang it to dry", $"{hung}/{clothes.Length}") +
-                (_finishedAt != null ? $"\n\n<color=#3E8E74><b>All done at {_finishedAt}!</b></color>" : "");
+            // the note is just a reminder now: the to-do list and progress are on the TV, the time on the wall clock
+            string status = _finishedAt != null ? $"\n\n<color=#3E8E74><b>All done at {_finishedAt}!</b></color>"
+                : ms != null && ms.Ended ? "\n\n<color=#B5553C><b>13:00 · out of time</b></color>" : "";
+            _text.text = $"<b>SATURDAY</b>\nfriends arrive at 13:00!\n\n<color=#7A7F7C>to-do list: on the TV</color>{status}";
         }
     }
 }

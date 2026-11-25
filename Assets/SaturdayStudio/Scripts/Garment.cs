@@ -18,6 +18,8 @@ namespace SaturdayStudio
         private float _hungFor;
 
         public State Current => _state;
+        /// <summary>Colour of the clean piece (used to texture it).</summary>
+        public Color DryColor => _dry != null ? _dry.color : Color.white;
         public bool IsHung => _slot != null;
         public bool WasHung { get; private set; }
         public Rigidbody Body { get; private set; }

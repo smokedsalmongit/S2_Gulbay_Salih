@@ -14,11 +14,21 @@ namespace SaturdayStudio
         private Quaternion _startRot;
         private Rigidbody _rb;
 
-        private void Start()
+        private bool _hasStart;
+
+        /// <summary>Use the current place as the respawn point (for props moved at runtime).</summary>
+        public void ResetStart()
         {
             _startPos = transform.position;
             _startRot = transform.rotation;
+            _hasStart = true;
+        }
+
+        private void Start()
+        {
+            if (!_hasStart) ResetStart();
             _rb = GetComponent<Rigidbody>();
+            _hasStart = true;
         }
 
         private void Update()

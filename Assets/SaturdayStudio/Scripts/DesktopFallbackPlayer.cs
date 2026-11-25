@@ -27,10 +27,54 @@ namespace SaturdayStudio
         private float _holdDistance = 0.8f;
         private bool _heldUsedGravity;
 
+        /// <summary>True while the desktop player is in control (no headset).</summary>
+        public static bool Active { get; private set; }
+        /// <summary>The grabbable under the crosshair (desktop only).</summary>
+        public static Rigidbody AimedBody { get; private set; }
+        private static DesktopFallbackPlayer _instance;
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+        private static void ResetStatics()
+        {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+            Active = false;
+            AimedBody = null;
+            HeldBody = null;
+            _instance = null;
+        }
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Install()
         {
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded -= OnSceneLoaded;
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += OnSceneLoaded;
+            Spawn();
+        }
+
+        // also after "live it again" reloads the scene
+        private static void OnSceneLoaded(UnityEngine.SceneManagement.Scene s, UnityEngine.SceneManagement.LoadSceneMode mode)
+        {
+            if (mode == UnityEngine.SceneManagement.LoadSceneMode.Single) Spawn();
+        }
+
+        private static void Spawn()
+        {
+            if (FindAnyObjectByType<DesktopFallbackPlayer>() != null) return;
             new GameObject("Desktop Fallback Player").AddComponent<DesktopFallbackPlayer>();
+        }
+
+        private void OnDestroy()
+        {
+            if (_instance != this) return;
+            Active = false;
+            AimedBody = null;
+            HeldBody = null;
+        }
+
+        /// <summary>Let go of whatever is carried (zone-out, phone pull).</summary>
+        public static void ForceDrop()
+        {
+            if (_instance != null) _instance.Drop(Vector3.zero);
         }
 
         private IEnumerator Start()
@@ -75,6 +119,8 @@ namespace SaturdayStudio
             camGo.AddComponent<AudioListener>();
 
             Cursor.lockState = CursorLockMode.Locked;
+            _instance = this;
+            Active = true;
             Debug.Log("[Saturday Studio] No headset or Meta XR Simulator detected: desktop test mode.");
         }
 
@@ -121,6 +167,7 @@ namespace SaturdayStudio
             _aimed = null;
             _aimedTask = null;
             if (_held == null) FindTarget();
+            AimedBody = _aimed;
             bool toggle = kb.eKey.wasPressedThisFrame || mouse.leftButton.wasPressedThisFrame;
             if (toggle)
             {
@@ -132,7 +179,7 @@ namespace SaturdayStudio
                     Drop(Vector3.zero);
                     action?.Invoke();
                 }
-                else if (_aimed != null) PickUp(_aimed);
+                else if (_aimed != null && GrabLock.CanGrab(_aimed)) PickUp(_aimed);
                 else if (_aimedTask != null && _aimedTask.Target.CanActivate) _aimedTask.Target.Activate();
             }
             if (_held != null && (kb.qKey.wasPressedThisFrame || mouse.rightButton.wasPressedThisFrame)) Drop(_cam.forward * 5f);
@@ -148,36 +195,32 @@ namespace SaturdayStudio
 
         private void FindTarget()
         {
-            // a thin sphere cast so small things like the phone or an apple are easy to aim at;
-            // trigger volumes only count if they are something to click (the bed), not the sink/washer/rack zones
+            // a thin sphere cast so small things like the phone or an apple are easy to aim at.
+            // Solid hits: the nearest one wins (a pickup, or a wall that blocks the view).
+            // Trigger hits only count if they are something to use (bed, tap, stove knob…), not the sink/washer/rack zones,
+            // and they win when nothing grabbable is aimed at and they are not far behind the nearest solid surface.
             var hits = Physics.SphereCastAll(_cam.position, 0.06f, _cam.forward, Reach, ~0, QueryTriggerInteraction.Collide);
-            float bestDist = float.MaxValue;
+            float solidDist = float.MaxValue, taskDist = float.MaxValue;
+            Rigidbody solidBody = null;
+            TaskClickable triggerTask = null;
             foreach (var h in hits)
             {
-                if (h.collider is CharacterController || h.distance >= bestDist) continue;
-                var task = h.collider.GetComponentInParent<TaskClickable>();
-                if (h.collider.isTrigger && task == null) continue;
-                if (h.rigidbody != null && h.rigidbody.GetComponent<RespawnIfFallen>() != null)
+                if (h.collider is CharacterController) continue;
+                if (h.collider.isTrigger)
                 {
-                    bestDist = h.distance;
-                    _aimed = h.rigidbody;
-                    _aimedTask = null;
+                    var task = h.collider.GetComponentInParent<TaskClickable>();
+                    if (task == null || task.Target == null || !task.Target.CanActivate || h.distance >= taskDist) continue;
+                    taskDist = h.distance;
+                    triggerTask = task;
+                    continue;
                 }
-                else if (task != null)
-                {
-                    // the bed's select volume surrounds things lying on it, so keep looking for a closer prop
-                    if (h.collider.isTrigger) { if (_aimed == null) _aimedTask = task; continue; }
-                    bestDist = h.distance;
-                    _aimed = null;
-                    _aimedTask = task;
-                }
-                else
-                {
-                    bestDist = h.distance;
-                    _aimed = null;
-                    _aimedTask = null;
-                }
+                if (h.distance >= solidDist) continue;
+                solidDist = h.distance;
+                solidBody = h.rigidbody != null && h.rigidbody.GetComponent<RespawnIfFallen>() != null ? h.rigidbody : null;
             }
+
+            if (solidBody != null) _aimed = solidBody;
+            else if (triggerTask != null && taskDist <= solidDist + 0.35f) _aimedTask = triggerTask;
         }
 
         private WasherMachine _washer;
@@ -248,17 +291,17 @@ namespace SaturdayStudio
             string chore = _held != null ? ChoreHint(_held.GetComponent<Garment>()) : null;
             string hint = chore != null ? $"Carrying {Describe(_held)}  ·  {chore}"
                 : _held != null ? $"Carrying {Describe(_held)}  ·  E / click: drop  ·  Q / right click: throw"
-                : _aimed != null ? $"{Describe(_aimed)}  ·  E / click: pick up"
+                : _aimed != null ? (GrabLock.CanGrab(_aimed) ? $"{Describe(_aimed)}  ·  E / click: pick up" : Describe(_aimed))
                 : _aimedTask != null ? (_aimedTask.Target.CanActivate ? $"{_aimedTask.Target.Label}  ·  E / click" : _aimedTask.Target.Label) : "";
             if (hint.Length > 0) GUI.Label(new Rect(c.x - 300, c.y + 24, 600, 26), hint, _style);
-            GUI.Label(new Rect(12, 10, 900, 24),
-                "Desktop test mode · WASD walk · mouse look · E or click: pick up / drop · Q or right click: throw · scroll: distance · Esc: cursor");
+            // no other on-screen text: controls are on the TV, the time on the wall clock
         }
 
         private static string Describe(Rigidbody rb)
         {
             string n = rb.name.Replace("[Grab] ", "");
             var dish = rb.GetComponent<Dish>();
+            if (n == "Cleaning Rag") return "Cleaning Rag (hold it on a floor stain)";
             if (dish != null) return dish.IsDirty ? $"{n} (dirty → sink)" : $"{n} (clean)";
             var g = rb.GetComponent<Garment>();
             if (g != null)

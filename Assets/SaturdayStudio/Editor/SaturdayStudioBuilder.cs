@@ -154,7 +154,7 @@ namespace SaturdayStudio.EditorTools
         private static void BuildKitchen(Transform p, Transform chores)
         {
             var cabinet = Mat("Cabinet", "#9DB0B8", 0.25f);
-            var counter = Mat("Countertop", "#F4F2EC", 0.4f);
+            var counter = Mat("Countertop", "#3E4548", 0.45f);
             var white = Mat("White", "#FAFAF7", 0.4f);
             var dark = Mat("Dark", "#2B2F33", 0.5f);
             var metal = Mat("Metal", "#B8BEC2", 0.6f);

@@ -23,6 +23,9 @@ namespace SaturdayStudio
         [SerializeField] private float _startDelay = 3f;
         [SerializeField] private float _washDuration = 12f;
 
+        public static event System.Action<WasherMachine> Started;
+        public static event System.Action<WasherMachine, List<Garment>> Finished;
+
         private readonly List<Garment> _load = new List<Garment>();
         private Mode _mode = Mode.Idle;
         private float _timer;
@@ -75,6 +78,7 @@ namespace SaturdayStudio
                 {
                     _mode = Mode.Washing;
                     _timer = _washDuration;
+                    Started?.Invoke(this);
                     if (_drumRenderer != null) _drumRenderer.sharedMaterial = _drumWashing;
                 }
                 Refresh();
@@ -108,6 +112,9 @@ namespace SaturdayStudio
                 g.Body.angularVelocity = Vector3.zero;
                 g.SetState(Garment.State.Wet);
             }
+            // the end-of-wash beep is spatial only: face away and it is easy to miss
+            MindAudio.PlayAt(MindAudio.WasherBeep, _output.position, 0.9f, 4f);
+            Finished?.Invoke(this, new List<Garment>(_load));
             _load.Clear();
             Refresh();
         }
