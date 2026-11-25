@@ -25,7 +25,11 @@ namespace SaturdayStudio
         private readonly Dictionary<Dish, float> _progress = new Dictionary<Dish, float>();
         private float _lastWashing = -10;
 
-        private void Awake() => GetComponent<Collider>().isTrigger = true;
+        private void Awake()
+        {
+            GetComponent<Collider>().isTrigger = true;
+            _tap = null; // look the tap up again in this scene
+        }
 
         private void OnTriggerStay(Collider other)
         {
@@ -58,7 +62,9 @@ namespace SaturdayStudio
         }
 
         // VR: water also runs while a hand is under the tap
-        private static bool HandsUnderTap() => MindInput.HandNear(new Vector3(-1.0f, 1.0f, 2.25f), 0.16f);
+        private static Vector3? _tap;
+        public static Vector3 TapPosition => _tap ??= Spots.Pos("Tap", new Vector3(-1.0f, 1.0f, 2.25f));
+        private static bool HandsUnderTap() => MindInput.HandNear(TapPosition, 0.16f);
 
         // a small "sparkle" bounce so the change is easy to notice
         private static IEnumerator Pop(Transform t)

@@ -1,6 +1,7 @@
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using System.Linq;
 using UnityEngine;
 
 namespace SaturdayStudio.EditorTools
@@ -22,8 +23,12 @@ namespace SaturdayStudio.EditorTools
             string dir = Path.Combine(Application.dataPath, "../Temp/Shots");
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsDir") dir = args[i + 1];
             Directory.CreateDirectory(dir);
+            string scene = "Assets/SaturdayStudio/Scenes/SaturdayStudio.unity";
+            for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-shotsScene") scene = args[i + 1];
+            if (scene.Contains("Apartment") && args.Contains("-buildApartment")) ApartmentSceneBuilder.Build();
             SessionState.SetString(Key, dir);
-            EditorSceneManager.OpenScene("Assets/SaturdayStudio/Scenes/SaturdayStudio.unity");
+            SessionState.SetBool(Key + ".apt", scene.Contains("Apartment"));
+            EditorSceneManager.OpenScene(scene);
             EditorApplication.EnterPlaymode();
         }
 
@@ -37,7 +42,25 @@ namespace SaturdayStudio.EditorTools
             if (_start == 0) _start = EditorApplication.timeSinceStartup;
             double t = EditorApplication.timeSinceStartup - _start;
 
-            if (_step == 0 && t > 4)
+            bool apt = SessionState.GetBool(Key + ".apt", false);
+            if (apt && _step == 0 && t > 4)
+            {
+                Shot(dir, "a1_intro_menu", StartMenu.IntroCenter + new Vector3(0, 1.6f, -0.6f), StartMenu.IntroCenter + new Vector3(0.3f, 1.4f, 1.0f));
+                Shot(dir, "a2_tv", new Vector3(1.6f, 1.6f, -5.0f), new Vector3(-0.34f, 0.85f, -5.16f));
+                Shot(dir, "a13_balcony_rack", new Vector3(0.4f, 1.7f, -7.4f), new Vector3(2.05f, 0.6f, -7.65f));
+                Shot(dir, "a3_table_dishes", new Vector3(1.7f, 1.6f, -2.6f), new Vector3(0.8f, 0.75f, -1.75f));
+                Shot(dir, "a4_sink_rack_washer", new Vector3(1.0f, 1.6f, -1.6f), new Vector3(2.4f, 0.8f, -1.6f));
+                Shot(dir, "a5_washer_front", new Vector3(1.2f, 1.1f, -2.05f), new Vector3(2.1f, 0.5f, -2.05f));
+                Shot(dir, "a6_bed", new Vector3(-1.4f, 1.7f, -5.05f), new Vector3(-3.0f, 0.5f, -5.05f));
+                Shot(dir, "a7_basket", new Vector3(-0.6f, 1.5f, -5.4f), new Vector3(-1.3f, 0.1f, -6.3f));
+                Shot(dir, "a8_balcony_rack_city", new Vector3(1.0f, 1.6f, -5.6f), new Vector3(1.8f, 0.9f, -8.0f));
+                Shot(dir, "a9_clock_fridge", new Vector3(1.6f, 1.6f, -1.3f), new Vector3(-0.3f, 1.9f, -1.0f));
+                Shot(dir, "a10_fridge_note", new Vector3(1.05f, 1.5f, -0.6f), new Vector3(1.05f, 1.35f, 0.3f));
+                Shot(dir, "a11_door", new Vector3(-1.1f, 1.6f, -1.8f), new Vector3(-0.9f, 1.1f, 1.0f));
+                Shot(dir, "a12_living_overview", new Vector3(2.4f, 2.1f, -6.6f), new Vector3(0.2f, 0.5f, -3.5f));
+                _step = 3;
+            }
+            else if (_step == 0 && t > 4)
             {
                 Shot(dir, "1_menu", new Vector3(0.2f, 1.6f, -1.5f), new Vector3(0.2f, 1.35f, -0.65f));
                 Shot(dir, "2_tv_start", new Vector3(1.2f, 1.35f, 0.2f), new Vector3(1.2f, 1.25f, -2.45f));

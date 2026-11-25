@@ -28,7 +28,10 @@ namespace SaturdayStudio
         // zone-out
         private bool _zoned;
         private int _presses;
-        private float _nextZoneCheck, _zoneCooldownUntil, _zoneStartMinute;
+        private float _nextZoneCheck, _zoneCooldownUntil, _zoneStartMinute, _zoneEndsAt;
+
+        /// <summary>A zone-out fades by itself after a while (mild 6 s · moderate 9 s · severe 14 s); pressing buttons ends it sooner.</summary>
+        private static float ZoneSeconds => MindState.CurrentLevel == Level.Mild ? 6f : MindState.CurrentLevel == Level.Severe ? 14f : 9f;
 
         // task pull
         private float _nextPull;
@@ -162,7 +165,8 @@ namespace SaturdayStudio
                 MindHud.Status(MindInput.Desktop
                     ? $"Zoned out. Press R to snap back  ({_presses}/{RefocusPresses})"
                     : $"Zoned out. Press A to snap back  ({_presses}/{RefocusPresses})");
-                if (MindInput.RefocusDown())
+                if (Time.time >= _zoneEndsAt) { EndZoneOut(); return; }
+                if (MindInput.AnyButtonDown())
                 {
                     _presses++;
                     MindInput.Buzz(0.4f, 0.08f, false, true);
@@ -185,6 +189,7 @@ namespace SaturdayStudio
             _presses = 0;
             _zoneStartMinute = _ms.Minute;
             _ms.ClockSpeed = 4f;
+            _zoneEndsAt = Time.time + ZoneSeconds;
             _ms.Log.ZoneOuts++;
             GrabLock.LockAll(true);
             if (MindPost.Instance != null) MindPost.Instance.ZoneOut = 1;

@@ -6,6 +6,9 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 1
+    path: Assets/SaturdayStudio/Scenes/SaturdayStudio_Apartment.unity
+    guid: 3a8d83095635f46e793feda1388281f9
+  - enabled: 1
     path: Assets/SaturdayStudio/Scenes/SaturdayStudio.unity
     guid: 5e9e68e760bc84aa9b41a2dce9230eb2
   - enabled: 1

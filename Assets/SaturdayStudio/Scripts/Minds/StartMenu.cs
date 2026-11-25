@@ -25,17 +25,96 @@ namespace SaturdayStudio
         private bool _ended;
         private MenuButton _adhd, _ocd, _start;
         private MenuButton[] _levels;
-        private TextMeshPro _title, _about;
+        private TextMeshPro _title, _about, _info;
+        private bool _busy;
+
+        /// <summary>The introduction happens in its own quiet room, away from the apartment.</summary>
+        public static readonly Vector3 IntroCenter = new Vector3(-40f, 0f, 0f);
 
         private void Start()
         {
             _mind = MindState.NextMind;
             _level = MindState.NextLevel;
-            Build(new Vector3(0.2f, 1.35f, -0.65f), Quaternion.Euler(0, 180, 0));
+            BuildIntroRoom();
+            Build(IntroCenter + new Vector3(0, 1.35f, 1.0f), Quaternion.Euler(0, 180, 0));
             MindState.MindChosen += OnChosen;
             MindState.DayEnded += OnDayEnded;
-            if (MindState.NextMind != Mind.None) _root.gameObject.SetActive(false); // "play again" starts by itself
+            if (MindState.NextMind != Mind.None)
+            {
+                // "play again": straight into the apartment, MindState starts the chosen mind by itself
+                PlayerRig.ToApartment();
+            }
+            else PlayerRig.TeleportTo(IntroCenter + new Vector3(0, 0, -0.5f), 0f);
             Refresh();
+        }
+
+        private void BuildIntroRoom()
+        {
+            var root = new GameObject("Introduction Room").transform;
+            var dark = new Material(Resources.Load<Material>("MindGlow")) { color = new Color(0.12f, 0.14f, 0.17f) };
+            dark.DisableKeyword("_EMISSION");
+            dark.SetColor("_EmissionColor", Color.black);
+            var floor = new Material(dark) { color = new Color(0.2f, 0.22f, 0.25f) };
+            void Slab(Vector3 local, Vector3 size, Material m, bool collider)
+            {
+                var go = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                if (!collider) Destroy(go.GetComponent<Collider>());
+                go.transform.SetParent(root, false);
+                go.transform.position = IntroCenter + local;
+                go.transform.localScale = size;
+                go.GetComponent<Renderer>().sharedMaterial = m;
+            }
+            Slab(new Vector3(0, -0.05f, 0), new Vector3(7, 0.1f, 7), floor, true);
+            Slab(new Vector3(0, 3.5f, 0), new Vector3(7, 0.1f, 7), dark, false);
+            Slab(new Vector3(0, 1.75f, 3.5f), new Vector3(7, 3.5f, 0.1f), dark, true);
+            Slab(new Vector3(0, 1.75f, -3.5f), new Vector3(7, 3.5f, 0.1f), dark, true);
+            Slab(new Vector3(3.5f, 1.75f, 0), new Vector3(0.1f, 3.5f, 7), dark, true);
+            Slab(new Vector3(-3.5f, 1.75f, 0), new Vector3(0.1f, 3.5f, 7), dark, true);
+            var l = new GameObject("Intro Light").AddComponent<Light>();
+            l.transform.SetParent(root, false);
+            l.transform.position = IntroCenter + new Vector3(0, 3f, 0.3f);
+            l.type = LightType.Point;
+            l.range = 9f;
+            l.intensity = 1.4f;
+            l.color = new Color(0.95f, 0.92f, 1f);
+
+            // explanation board, to the right of the menu and turned towards the player
+            _info = new GameObject("Introduction Text").AddComponent<TextMeshPro>();
+            _info.transform.SetParent(root, false);
+            _info.transform.position = IntroCenter + new Vector3(1.05f, 1.45f, 0.75f);
+            _info.transform.rotation = Quaternion.Euler(0, 40, 0);
+            _info.rectTransform.sizeDelta = new Vector2(0.95f, 0.95f);
+            _info.fontSize = 0.3f;
+            _info.enableAutoSizing = true;
+            _info.fontSizeMin = 0.15f;
+            _info.fontSizeMax = 0.3f;
+            _info.alignment = TextAlignmentOptions.TopLeft;
+            _info.textWrappingMode = TextWrappingModes.Normal;
+            _info.color = new Color(0.9f, 0.92f, 0.93f);
+        }
+
+        private string InfoText()
+        {
+            if (_ended) return MindState.Summary();
+            bool desktop = MindInput.Desktop;
+            string intro = "<b>A Saturday morning, lived through another mind</b>\n" +
+                           "<size=80%>It is 10:00. Friends arrive at 13:00. The apartment needs tidying: dishes, bed, laundry" +
+                           (_mind == Mind.OCD ? "" : ", floor") + ". The to-do list is on the TV, the time on the kitchen clock.</size>\n\n";
+            string move = desktop
+                ? "<size=75%><b>Controls</b>  WASD walk · mouse look · E / click: pick up, drop, use</size>\n"
+                : "<size=75%><b>Controls</b>  left stick: walk · right stick: turn · grip: grab (also from a distance) · trigger: use</size>\n";
+            if (_mind == Mind.ADHD)
+                return intro + "<color=#B9A6FF><b>VS1 · ADHD: attention drifts away</b></color>\n<size=80%>" +
+                       "Boring tasks are hard to start. Now and then your mind drifts off: the room turns grey and blurry and time speeds up. " +
+                       (desktop ? "Press R or Space a few times" : "Press any button a few times") + " to come back (or wait). " +
+                       "Other chores and your phone pull you away. " +
+                       (desktop ? "Hold T to look at your watch." : "Raise your left wrist to look at your watch.") + "</size>\n\n" + move;
+            if (_mind == Mind.OCD)
+                return intro + "<color=#7FD1C1><b>VS2 · OCD: attention gets stuck</b></color>\n<size=80%>" +
+                       "Touching dirty things makes your hands feel dirty; wash them under the kitchen tap. Doubts like \"is the stove off?\" pull you back to check. " +
+                       "Crooked things have to be straightened. " +
+                       (desktop ? "Hold F to resist an urge, press F twice to calm down." : "Hold B to resist an urge, press B twice to calm down.") + "</size>\n\n" + move;
+            return intro + "<size=80%>Choose whose Saturday you want to live, and how strong it is, then press Start.</size>\n\n" + move;
         }
 
         private void OnDestroy()
@@ -127,6 +206,7 @@ namespace SaturdayStudio
             for (int i = 0; i < _levels.Length; i++) _levels[i].SetColor((int)_level == i ? LevelColor : Idle);
             _start.SetColor(_mind != Mind.None ? StartColor : Idle);
             _start.Enabled = _mind != Mind.None;
+            if (_info != null) _info.text = InfoText();
             _about.text = _mind == Mind.None ? "<color=#8A949A>Pick a mind first</color>"
                 : _ended ? $"<color=#8A949A>Play again as {MindState.Describe(_mind, _level)}</color>"
                 : $"<color=#8A949A>{MindState.Describe(_mind, _level)} · friends arrive at 13:00</color>";
@@ -134,14 +214,40 @@ namespace SaturdayStudio
 
         private void OnStart()
         {
-            if (_mind == Mind.None) return;
-            if (_ended) MindState.LiveAgain(_mind, _level);
-            else MindState.Instance.Choose(_mind, _level);
+            if (_mind == Mind.None || _busy) return;
+            if (_ended) { StartCoroutine(FadeThen(() => MindState.LiveAgain(_mind, _level), false)); return; }
+            StartCoroutine(FadeThen(() =>
+            {
+                PlayerRig.ToApartment();
+                MindState.Instance.Choose(_mind, _level);
+            }, true));
+        }
+
+        /// <summary>Fade to black, do something (move the player), fade back in.</summary>
+        private System.Collections.IEnumerator FadeThen(Action action, bool fadeIn)
+        {
+            _busy = true;
+            var post = MindPost.Instance;
+            for (float t = 0; t < 1; t += Time.deltaTime / 0.6f)
+            {
+                if (post != null) post.Fade = t;
+                yield return null;
+            }
+            if (post != null) post.Fade = 1;
+            action();
+            yield return new WaitForSeconds(0.3f);
+            if (fadeIn)
+                for (float t = 1; t > 0; t -= Time.deltaTime / 0.8f)
+                {
+                    if (post != null) post.Fade = t;
+                    yield return null;
+                }
+            if (post != null) post.Fade = 0;
+            _busy = false;
         }
 
         private void OnChosen(Mind m)
         {
-            _root.gameObject.SetActive(false);
             MindAudio.Play2D(MindAudio.Chime, 0.6f);
         }
 
@@ -149,19 +255,15 @@ namespace SaturdayStudio
         {
             _ended = true;
             MindAudio.Play2D(MindAudio.Doorbell, 0.9f);
-            // bring the menu back in front of the player
-            var head = MindInput.Head;
-            if (head != null)
-            {
-                var fwd = Vector3.ProjectOnPlane(head.forward, Vector3.up).normalized;
-                if (fwd.sqrMagnitude < 0.01f) fwd = Vector3.forward;
-                var pos = head.position + fwd * 0.8f;
-                pos.y = Mathf.Clamp(head.position.y - 0.25f, 0.9f, 1.5f);
-                _root.SetPositionAndRotation(pos, Quaternion.LookRotation(-fwd)); // local +z towards the player
-            }
             _start.SetLabel("Play again");
-            _root.gameObject.SetActive(true);
             Refresh();
+            StartCoroutine(BackToIntro());
+        }
+
+        private System.Collections.IEnumerator BackToIntro()
+        {
+            yield return new WaitForSeconds(4f); // hear the doorbell, glance at the TV
+            yield return FadeThen(() => PlayerRig.TeleportTo(IntroCenter + new Vector3(0, 0, -0.5f), 0f), true);
         }
     }
 

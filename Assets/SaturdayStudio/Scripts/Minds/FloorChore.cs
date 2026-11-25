@@ -52,7 +52,7 @@ namespace SaturdayStudio
         {
             var source = FindAnyObjectByType<Garment>(FindObjectsInactive.Include);
             if (source == null) return;
-            var go = Instantiate(source.gameObject, new Vector3(-1.0f, 0.04f, 1.72f), Quaternion.Euler(0, 15, 0));
+            var go = Instantiate(source.gameObject, Spots.Pos("Rag", new Vector3(-1.0f, 0.04f, 1.72f)), Quaternion.Euler(0, 15, 0));
             go.SetActive(true);
             go.name = "[Grab] Cleaning Rag";
             DestroyImmediate(go.GetComponent<Garment>());

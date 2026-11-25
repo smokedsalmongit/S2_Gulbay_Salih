@@ -71,6 +71,18 @@ namespace SaturdayStudio
             HeldBody = null;
         }
 
+        /// <summary>Move the desktop body (introduction room ↔ apartment).</summary>
+        public static void TeleportTo(Vector3 floor, float yaw)
+        {
+            if (_instance == null || _instance._body == null) return;
+            _instance.Drop(Vector3.zero);
+            _instance._body.enabled = false;
+            _instance.transform.SetPositionAndRotation(floor, Quaternion.Euler(0, yaw, 0));
+            _instance._pitch = 0;
+            if (_instance._cam != null) _instance._cam.localRotation = Quaternion.identity;
+            _instance._body.enabled = true;
+        }
+
         /// <summary>Let go of whatever is carried (zone-out, phone pull).</summary>
         public static void ForceDrop()
         {

@@ -97,16 +97,16 @@ namespace SaturdayStudio
             SinkZone.ExtraWashDone += OnExtraWash;
 
             // wash hands under the tap
-            _tap = Hotspot.Create("Wash Hands", new Vector3(-1.0f, 1.0f, 2.25f), 0.16f, "Wash your hands", "Washing your hands…", 2.5f,
+            _tap = Hotspot.Create("Wash Hands", SinkZone.TapPosition, 0.16f, "Wash your hands", "Washing your hands…", 2.5f,
                 WashHands, () => _active && _ms.Running);
 
-            _stove = AddCheck("Stove", new Vector3(-1.9f, 0.86f, 1.9f), GameObject.Find("Stove Top"),
+            _stove = AddCheck("Stove", Spots.Pos("Stove", new Vector3(-1.9f, 0.86f, 1.9f)), Spots.Object("Stove", "Stove Top"),
                 new[] { "Is the stove off?", "What if it's still on?", "Check it. Just once more.", "You didn't really look, did you?" },
                 "It's off. …I think it's off.");
-            _door = AddCheck("Front Door", new Vector3(-1.75f, 1.0f, -2.4f), GameObject.Find("Door"),
+            _door = AddCheck("Front Door", Spots.Pos("Front Door", new Vector3(-1.75f, 1.0f, -2.4f)), Spots.Object("Front Door", "Door"),
                 new[] { "Did I lock the front door?", "Anyone could walk in.", "Go and check the door." },
                 "Locked. Definitely locked. …Definitely?");
-            _washerDoor = AddCheck("Washer Door", new Vector3(-0.25f, 0.4f, 1.85f), GameObject.Find("Washer Door Ring"),
+            _washerDoor = AddCheck("Washer Door", Spots.Pos("Washer Door", new Vector3(-0.25f, 0.4f, 1.85f)), Spots.Object("Washer Door", "Washer Door Ring"),
                 new[] { "Is the washer door really shut?", "What if it floods the kitchen?" },
                 "Shut. It's shut.");
 

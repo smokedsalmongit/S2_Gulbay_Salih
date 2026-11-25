@@ -8,7 +8,7 @@ namespace SaturdayStudio
     /// </summary>
     public class WallClock : MonoBehaviour
     {
-        private static readonly Vector3 Center = new Vector3(-0.2f, 1.95f, 2.49f);
+        private Vector3 Center;
         private const float Radius = 0.19f;
 
         private Transform _hour, _minute;
@@ -16,9 +16,11 @@ namespace SaturdayStudio
 
         private void Start()
         {
+            Center = Spots.Pos("Clock", new Vector3(-0.2f, 1.95f, 2.49f));
             var root = new GameObject("Wall Clock").transform;
             root.position = Center;
-            root.rotation = Quaternion.Euler(0, 180, 0); // local +z points into the room: higher z = closer to the viewer
+            // local +z points into the room: higher z = closer to the viewer
+            root.rotation = Spots.Rot("Clock", Quaternion.Euler(0, 180, 0));
 
             Part(PrimitiveType.Cylinder, "Rim", root, new Vector3(0, 0, -0.008f), Quaternion.Euler(90, 0, 0),
                 new Vector3(Radius * 2.15f, 0.012f, Radius * 2.15f), new Color(0.24f, 0.27f, 0.29f));

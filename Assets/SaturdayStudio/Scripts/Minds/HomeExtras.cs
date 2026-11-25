@@ -15,8 +15,19 @@ namespace SaturdayStudio
         private void Start()
         {
             _baseMat = Resources.Load<Material>("MindGlow");
-            BuildCeiling();
-            BuildCity();
+            // the asset-based apartment scene brings its own walls, ceiling and windows
+            bool assetApartment = GameObject.Find("Apartment (asset)") != null;
+            if (!assetApartment)
+            {
+                BuildCeiling();
+                BuildCity(Vector3.zero, 0f);
+            }
+            else
+            {
+                // the flat's windows and balcony face -z: turn the city that way, beyond the balcony
+                BuildCity(Spots.Pos("City", new Vector3(0, 0, -8.6f)), Spots.Rot("City", Quaternion.Euler(0, 90, 0)).eulerAngles.y);
+            }
+            SoftenLighting();
             DishRack.Build(this);
         }
 
@@ -61,22 +72,43 @@ namespace SaturdayStudio
             var root = new GameObject("Ceiling").transform;
             // does not cast shadows, so the sunlight through the window still reaches the room
             Box("Ceiling", root, new Vector3(0, 2.75f, 0), new Vector3(6.3f, 0.1f, 5.3f), Mat(new Color(0.95f, 0.94f, 0.91f), 0.05f), false, false);
-            var shade = Box("Ceiling Lamp", root, new Vector3(0.2f, 2.66f, 0.1f), new Vector3(0.42f, 0.06f, 0.42f),
-                Mat(new Color(1f, 0.95f, 0.85f), 0.3f, null, 1.2f), false, false);
+            // two dim lamps instead of one bright one: kitchen and living area
+            Lamp(root, new Vector3(-1.3f, 2.66f, 1.4f));
+            Lamp(root, new Vector3(1.2f, 2.66f, -0.9f));
+        }
+
+        private void Lamp(Transform root, Vector3 pos)
+        {
+            Box("Ceiling Lamp", root, pos, new Vector3(0.36f, 0.05f, 0.36f), Mat(new Color(1f, 0.95f, 0.85f), 0.3f, null, 0.6f), false, false);
             var lightGo = new GameObject("Ceiling Light");
             lightGo.transform.SetParent(root, false);
-            lightGo.transform.position = new Vector3(0.2f, 2.5f, 0.1f);
+            lightGo.transform.position = pos - Vector3.up * 0.15f;
             var l = lightGo.AddComponent<Light>();
             l.type = LightType.Point;
-            l.range = 7f;
-            l.intensity = 1.1f;
-            l.color = new Color(1f, 0.93f, 0.82f);
+            l.range = 5.5f;
+            l.intensity = 0.55f;
+            l.color = new Color(1f, 0.9f, 0.78f);
             l.shadows = LightShadows.None;
+        }
+
+        /// <summary>
+        /// The sun used to throw big hard shadows of walls and furniture across the room that did not match anything
+        /// you could see. It is now a soft, weaker fill light without shadows; the lamps and the ambient light do the rest.
+        /// </summary>
+        private static void SoftenLighting()
+        {
+            foreach (var l in FindObjectsByType<Light>())
+            {
+                if (l.type != LightType.Directional) continue;
+                l.shadows = LightShadows.None;
+                l.intensity = Mathf.Min(l.intensity, 0.45f);
+            }
+            RenderSettings.ambientIntensity = 1f;
         }
 
         // ---------- city view ----------
 
-        private void BuildCity()
+        private void BuildCity(Vector3 origin, float yaw)
         {
             var root = new GameObject("City View").transform;
             var rng = new System.Random(42);
@@ -119,6 +151,7 @@ namespace SaturdayStudio
             }
             // a street far below with some trees
             Box("Street", root, new Vector3(40f, ground, -5f), new Vector3(80f, 0.2f, 120f), Mat(new Color(0.35f, 0.36f, 0.37f), 0.1f), false, false);
+            root.SetPositionAndRotation(origin, Quaternion.Euler(0, yaw, 0));
         }
 
         private static Texture2D SkyTexture()
@@ -162,10 +195,11 @@ namespace SaturdayStudio
         private readonly List<Transform> _mugSlots = new List<Transform>();
         private readonly HashSet<Transform> _used = new HashSet<Transform>();
 
-        private static readonly Vector3 Center = new Vector3(-1.43f, 0.94f, 2.2f); // countertop, left of the sink
+        private static Vector3 Center = new Vector3(-1.43f, 0.94f, 2.2f); // countertop, left of the sink
 
         public static void Build(HomeExtras home)
         {
+            Center = Spots.Pos("Dish Rack", new Vector3(-1.43f, 0.94f, 2.2f));
             // the plate and bowl that stood here move to the table
             MoveProp("[Grab] Plate", new Vector3(-1.5f, 0.945f, 2.15f), new Vector3(-0.72f, 0.79f, -0.3f));
             MoveProp("[Grab] Bowl", new Vector3(-1.6f, 0.945f, 2.32f), new Vector3(-1.65f, 0.79f, -0.45f));

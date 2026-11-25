@@ -19,6 +19,8 @@ namespace SaturdayStudio
         public float Narrow;
         /// <summary>0..1, brown tint of the vignette while the hands feel dirty.</summary>
         public float Dirt;
+        /// <summary>0..1 fade to black (between the introduction and the apartment).</summary>
+        public float Fade;
 
         private ColorAdjustments _color;
         private Vignette _vignette;
@@ -58,7 +60,8 @@ namespace SaturdayStudio
         private void LateUpdate()
         {
             float k = 1 - Mathf.Exp(-Time.deltaTime * 2.5f);
-            _zoneShown = Mathf.Lerp(_zoneShown, ZoneOut, k);
+            // drifting away is gradual, snapping back is quick
+            _zoneShown = Mathf.Lerp(_zoneShown, ZoneOut, ZoneOut > _zoneShown ? k : 1 - Mathf.Exp(-Time.deltaTime * 7f));
             _narrowShown = Mathf.Lerp(_narrowShown, Narrow, k);
             _dirtShown = Mathf.Lerp(_dirtShown, Dirt, k);
 
@@ -67,7 +70,7 @@ namespace SaturdayStudio
             if (cam != null)
             {
                 var data = cam.GetUniversalAdditionalCameraData();
-                bool need = _zoneShown > 0.02f || _narrowShown > 0.02f;
+                bool need = _zoneShown > 0.02f || _narrowShown > 0.02f || Fade > 0.001f;
                 if (data != null && data.renderPostProcessing != need) data.renderPostProcessing = need;
             }
             Apply();
@@ -78,6 +81,7 @@ namespace SaturdayStudio
             float z = _zoneShown;
             _color.saturation.Override(Mathf.Lerp(0, -85, z));
             _color.postExposure.Override(Mathf.Lerp(0, -0.35f, z));
+            _color.colorFilter.Override(Color.Lerp(Color.white, Color.black, Fade));
             _dof.active = z > 0.03f;
             _dof.gaussianStart.Override(Mathf.Lerp(20f, 0.2f, z));
             _dof.gaussianEnd.Override(Mathf.Lerp(30f, 1.8f, z));

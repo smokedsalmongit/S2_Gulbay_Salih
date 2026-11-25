@@ -92,6 +92,16 @@ namespace SaturdayStudio
         /// <summary>VS1 refocus: A button (desktop R).</summary>
         public static bool RefocusDown() => KeyDown(Key.R) || Ovr(() => OVRInput.GetDown(OVRInput.Button.One));
 
+        /// <summary>Any button on either controller (A, B, X, Y, triggers, thumbsticks) or R / Space / click on desktop.</summary>
+        public static bool AnyButtonDown()
+        {
+            if (KeyDown(Key.R) || KeyDown(Key.Space) || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame)) return true;
+            return Ovr(() => OVRInput.GetDown(OVRInput.Button.One) || OVRInput.GetDown(OVRInput.Button.Two) ||
+                             OVRInput.GetDown(OVRInput.Button.Three) || OVRInput.GetDown(OVRInput.Button.Four) ||
+                             OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger) || OVRInput.GetDown(OVRInput.Button.SecondaryIndexTrigger) ||
+                             OVRInput.GetDown(OVRInput.Button.PrimaryThumbstick) || OVRInput.GetDown(OVRInput.Button.SecondaryThumbstick));
+        }
+
         /// <summary>VS2 resist: hold B (desktop F).</summary>
         public static bool ResistHeld() => KeyHeld(Key.F) || Ovr(() => OVRInput.Get(OVRInput.Button.Two));
 

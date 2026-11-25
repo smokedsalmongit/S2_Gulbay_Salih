@@ -32,7 +32,14 @@ namespace SaturdayStudio
             var tv = GameObject.Find("TV");
             _baseMat = Resources.Load<Material>("MindGlow");
             _root = new GameObject("TV Screen").transform;
-            if (tv != null)
+            var spot = Spots.Find("TV Screen");
+            if (spot != null)
+            {
+                // a TV in another apartment: its spot gives position, facing (local +z towards the viewer) and size
+                _root.SetPositionAndRotation(spot.position, spot.rotation);
+                _root.localScale = Vector3.one * spot.localScale.x;
+            }
+            else if (tv != null)
             {
                 var b = tv.GetComponent<Renderer>().bounds;
                 _root.position = new Vector3(b.center.x, b.center.y, b.max.z + 0.002f);
@@ -40,7 +47,7 @@ namespace SaturdayStudio
             else _root.position = new Vector3(1.2f, 1.25f, -2.448f);
             // the TV is on the front wall and the room is on its +z side: local +z points at the viewer,
             // so the viewer's right is local -x
-            _root.rotation = Quaternion.identity;
+            if (spot == null) _root.rotation = Quaternion.identity;
 
             Quad("Glass", new Vector3(0, 0, 0), new Vector2(W + 0.04f, H + 0.04f), new Color(0.05f, 0.08f, 0.11f), 0.6f);
             _title = Text("Title", new Vector3(0, 0.25f, 0.004f), new Vector2(W - 0.08f, 0.12f), 0.75f, TextAlignmentOptions.Center);
@@ -155,7 +162,8 @@ namespace SaturdayStudio
 
             bool desktop = MindInput.Desktop;
             _footer.text = mind == Mind.ADHD
-                ? (desktop ? "Zoned out? press R ×3  ·  hold T: watch" : "Zoned out? press A ×3  ·  raise your left wrist: watch")
+                ? (desktop ? "Room going grey and blurry? press R / Space a few times  ·  hold T: watch"
+                           : "Room going grey and blurry? press any button a few times  ·  raise your left wrist: watch")
                 : (desktop ? "E: wash hands at the tap · check stove / door / washer  ·  G: straighten  ·  hold F: resist"
                            : "Hands under the tap: wash  ·  hand on stove / door / washer: check  ·  hold B: resist");
         }
